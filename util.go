@@ -3,6 +3,7 @@ package gazs_golang_utils
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -90,8 +91,8 @@ func Unzip(src string, dest string) ([]string, error) {
 	return filenames, nil
 }
 
-func HandleGetRequest(url string, key string) (*http.Response, error) {
-	resp, err := makeRequest("GET", url, nil, key)
+func HandleGetRequest(url string, headers map[string][]string) (*http.Response, error) {
+	resp, err := makeRequest("GET", url, nil, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -101,12 +102,35 @@ func HandleGetRequest(url string, key string) (*http.Response, error) {
 	return resp, nil
 }
 
-func makeRequest(method, url string, b []byte, authKey string) (*http.Response, error) {
+func HandlePostRequest(url string, body []byte, headers map[string][]string) (*http.Response, error) {
+	resp, err := makeRequest("POST", url, body, headers)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, errors.New(fmt.Sprintf("Error: %d", resp.StatusCode))
+	}
+	return resp, nil
+}
+
+func makeRequest(method, url string, b []byte, requestHeaders map[string][]string) (*http.Response, error) {
 	headers := map[string][]string{
 		"Accept": []string{"application/json"},
 	}
-	if authKey != "" {
-		headers["Authorization"] = []string{"Basic " + authKey}
+	if method == "POST" {
+		headers["Content-Type"] = []string{"application/json"}
+	}
+	/*if authKey != "" {
+		if strings.HasPrefix(authKey, "$") {
+			headers["x-api-key"] = []string{authKey}
+		} else if strings.HasPrefix(authKey, "Bearer") {
+			headers["Authorization"] = []string{authKey}
+		} else {
+			headers["Authorization"] = []string{"Basic " + authKey}
+		}
+	}*/
+	for k, v := range requestHeaders {
+		headers[k] = v
 	}
 	client := &http.Client{}
 	req, err := http.NewRequest(method, url, bytes.NewReader(b))
